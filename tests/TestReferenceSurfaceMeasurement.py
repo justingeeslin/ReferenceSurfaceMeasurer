@@ -4,6 +4,7 @@ import logging
 import numpy as np
 import os
 import pytest
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from pprint import pprint
 
@@ -96,6 +97,31 @@ def print_debug_on_failure(label: str, get_debug):
     except Exception:
         print_reference_surface_measurer_debug(get_debug(), label=label)
         raise
+
+
+def test_contour_to_svg_returns_complete_svg_document():
+    contour = np.array(
+        [
+            [[10, 20]],
+            [[30, 20]],
+            [[30, 50]],
+            [[10, 50]],
+        ],
+        dtype=np.int32,
+    )
+
+    svg = ReferenceSurfaceMeasurer()._contour_to_svg(contour)
+
+    root = ET.fromstring(svg)
+    namespace = "{http://www.w3.org/2000/svg}"
+    assert root.tag == f"{namespace}svg"
+    assert root.attrib["width"] == "20"
+    assert root.attrib["height"] == "30"
+    assert root.attrib["viewBox"] == "10 20 20 30"
+
+    path = root.find(f"{namespace}path")
+    assert path is not None
+    assert path.attrib["d"] == "M 10 20 L 30 20 L 30 50 L 10 50 Z"
 
 
 @pytest.mark.parametrize(
