@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "object-measurer-two"
+name = "reference-surface-measurer"
 version = "0.1.0"
 description = "Perspective-corrected object and garment measurement from photographs"
 requires-python = ">=3.10"
@@ -18,9 +18,8 @@ test = [
 ]
 
 [tool.setuptools]
-py-modules = ["ObjectMeasurer"]
+py-modules = ["ReferenceSurfaceMeasurer"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["Test*.py", "test_*.py"]
-

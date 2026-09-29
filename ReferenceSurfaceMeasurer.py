@@ -11,7 +11,7 @@ import cv2
 import numpy as np
 
 
-LOGGER = logging.getLogger("ObjectMeasurer.ObjectMeasurement")
+LOGGER = logging.getLogger("ReferenceSurfaceMeasurer.Measurement")
 
 
 @dataclass
@@ -74,7 +74,7 @@ def _quad_from_contour(contour: np.ndarray) -> np.ndarray:
     return cv2.boxPoints(cv2.minAreaRect(hull)).astype(np.float32)
 
 
-class ObjectMeasurer:
+class ReferenceSurfaceMeasurer:
     def __init__(
         self,
         scale: float = 1.0,

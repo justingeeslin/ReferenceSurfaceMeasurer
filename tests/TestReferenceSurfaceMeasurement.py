@@ -7,7 +7,7 @@ import pytest
 from pathlib import Path
 from pprint import pprint
 
-from ObjectMeasurer import ObjectMeasurer
+from ReferenceSurfaceMeasurer import ReferenceSurfaceMeasurer
 
 # SHORT SIDE / X-AXIS FIRST
 A4_MM = (210.0, 297.0)
@@ -61,8 +61,8 @@ def debug_path(tmp_path: Path, slug: str, image_path: Path) -> str:
     return str(path)
 
 
-def print_object_measurer_debug(debug, *, label: str) -> None:
-    print(f"\nObjectMeasurer debug for failed test: {label}")
+def print_reference_surface_measurer_debug(debug, *, label: str) -> None:
+    print(f"\nReferenceSurfaceMeasurer debug for failed test: {label}")
     if not debug:
         print("No debug payload was captured.")
         return
@@ -94,7 +94,7 @@ def print_debug_on_failure(label: str, get_debug):
     try:
         yield
     except Exception:
-        print_object_measurer_debug(get_debug(), label=label)
+        print_reference_surface_measurer_debug(get_debug(), label=label)
         raise
 
 
@@ -133,7 +133,7 @@ def test_images_processes(slug, scale, image_path, reference_size_mm, tol_cm, tm
     img = cv2.imread(str(image_path))
     assert img is not None, f"Could not load image at path: {image_path}"
 
-    measurer = ObjectMeasurer(
+    measurer = ReferenceSurfaceMeasurer(
         scale = scale,
         reference_size_mm=reference_size_mm,
         debug_path=debug_path(tmp_path, slug, image_path),
@@ -156,7 +156,7 @@ def test_mock_box_white_blue_one_detects_large_central_shirt_contour(tmp_path):
     img = cv2.imread(str(image_path))
     assert img is not None, f"Could not load image at path: {image_path}"
 
-    measurer = ObjectMeasurer(
+    measurer = ReferenceSurfaceMeasurer(
         scale=1,
         reference_size_mm=MOCK_BOX_MM,
         debug_path=debug_path(tmp_path, slug, image_path),
@@ -207,7 +207,7 @@ def test_1jpg_two_objects_about_9x5(slug, scale, image_path, reference_size_mm, 
     img = cv2.imread(str(image_path))
     assert img is not None, f"Could not load image at path: {image_path}"
 
-    measurer = ObjectMeasurer(
+    measurer = ReferenceSurfaceMeasurer(
         scale = scale,
         reference_size_mm=reference_size_mm,
         debug_path=debug_path(tmp_path, slug, image_path),
@@ -249,9 +249,9 @@ def test_1jpg_two_objects_about_9x5(slug, scale, image_path, reference_size_mm, 
 
 def test_failed_measurement_includes_debug_trace_and_logs(caplog):
     img = np.zeros((200, 200, 3), dtype=np.uint8)
-    measurer = ObjectMeasurer(reference_size_mm=LETTER_MM)
+    measurer = ReferenceSurfaceMeasurer(reference_size_mm=LETTER_MM)
 
-    with caplog.at_level(logging.WARNING, logger="ObjectMeasurer.ObjectMeasurement"):
+    with caplog.at_level(logging.WARNING, logger="ReferenceSurfaceMeasurer.Measurement"):
         measurements, debug = measurer.measure(img, return_debug=True)
 
     with print_debug_on_failure("failed-measurement", lambda: debug):
@@ -267,7 +267,7 @@ def test_debug_images_can_be_saved_to_requested_folder(tmp_path):
     img = cv2.imread(str(image_path))
     assert img is not None
 
-    measurer = ObjectMeasurer(
+    measurer = ReferenceSurfaceMeasurer(
         reference_size_mm=LETTER_MM,
         debug_path=tmp_path,
         save_debug_images=True,
