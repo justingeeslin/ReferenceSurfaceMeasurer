@@ -10,6 +10,7 @@ requires-python = ">=3.10"
 dependencies = [
     "numpy>=1.24",
     "opencv-python-headless>=4.8",
+    "OpenCVContourSVGConverter @ git+https://github.com/justingeeslin/convert-opencv-contour-svg.git",
 ]
 
 [project.optional-dependencies]

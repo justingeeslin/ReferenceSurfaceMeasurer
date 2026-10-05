@@ -9,6 +9,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import cv2
 import numpy as np
+from OpenCVContourSVGConverter import OpenCVContourSVGConverter
 
 
 LOGGER = logging.getLogger("ReferenceSurfaceMeasurer.Measurement")
@@ -649,24 +650,21 @@ class ReferenceSurfaceMeasurer:
 
     def _contour_to_svg(self, contour: np.ndarray) -> str:
         points = contour.reshape(-1, 2)
-        if len(points) > 250:
-            epsilon = 0.004 * cv2.arcLength(contour, True)
-            points = cv2.approxPolyDP(contour, epsilon, True).reshape(-1, 2)
         if len(points) == 0:
             return ""
 
-        min_x, min_y = np.floor(points.min(axis=0)).astype(int)
-        max_x, max_y = np.ceil(points.max(axis=0)).astype(int)
-        width = max(1, int(max_x - min_x))
-        height = max(1, int(max_y - min_y))
+        simplify_epsilon = 0.0
+        if len(points) > 250:
+            simplify_epsilon = 0.004 * cv2.arcLength(contour, True)
 
-        commands = [f"M {int(points[0][0])} {int(points[0][1])}"]
-        commands.extend(f"L {int(x)} {int(y)}" for x, y in points[1:])
-        commands.append("Z")
-        path_data = " ".join(commands)
-        return (
-            f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
-            f'viewBox="{min_x} {min_y} {width} {height}">'
-            f'<path d="{path_data}"/>'
-            "</svg>"
+        svg, _, _ = OpenCVContourSVGConverter.convert(
+            contour,
+            stroke="#00C853",
+            stroke_width=2,
+            fill="none",
+            close_paths=True,
+            simplify_epsilon=simplify_epsilon,
+            precision=0,
+            segment_name="object-contour",
         )
+        return svg
