@@ -115,13 +115,14 @@ def test_contour_to_svg_returns_complete_svg_document():
     root = ET.fromstring(svg)
     namespace = "{http://www.w3.org/2000/svg}"
     assert root.tag == f"{namespace}svg"
-    assert root.attrib["width"] == "20"
-    assert root.attrib["height"] == "30"
-    assert root.attrib["viewBox"] == "10 20 20 30"
+    assert root.attrib["width"] == "20px"
+    assert root.attrib["height"] == "30px"
+    assert root.attrib["viewBox"] == "0.00 0.00 20.00 30.00"
 
-    path = root.find(f"{namespace}path")
-    assert path is not None
-    assert path.attrib["d"] == "M 10 20 L 30 20 L 30 50 L 10 50 Z"
+    polygon = root.find(f"{namespace}polygon")
+    assert polygon is not None
+    assert polygon.attrib["id"] == "object-contour"
+    assert polygon.attrib["points"] == "0,0 20,0 20,30 0,30"
 
 
 @pytest.mark.parametrize(
