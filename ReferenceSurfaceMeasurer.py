@@ -152,7 +152,7 @@ class ReferenceSurfaceMeasurer:
                 for m in measurements
             ]
             if object_contours:
-                self.debug["object_contour_svg"] = self._contour_to_svg(object_contours[0])
+                self.debug["object_contour_svg"] = self._contour_to_svg(object_contours[0], (measurements[0].width_mm, measurements[0].height_mm))
             self._trace("object_measured", {"count": len(measurements)})
             return self._return(measurements, return_debug)
         except Exception as exc:  # pragma: no cover - defensive debug surface
@@ -648,7 +648,7 @@ class ReferenceSurfaceMeasurer:
             cv2.polylines(min_rect, [box], True, (0, 0, 255), max(1, int(min(warp.shape[:2]) * 0.006)))
         self._save_debug("object_minAreaRect", min_rect)
 
-    def _contour_to_svg(self, contour: np.ndarray) -> str:
+    def _contour_to_svg(self, contour: np.ndarray, canvas_size = None) -> str:
         points = contour.reshape(-1, 2)
         if len(points) == 0:
             return ""
@@ -659,6 +659,7 @@ class ReferenceSurfaceMeasurer:
 
         svg, _, _ = OpenCVContourSVGConverter.convert(
             contour,
+            canvas_size=canvas_size,
             stroke="#00C853",
             stroke_width=2,
             fill="none",
