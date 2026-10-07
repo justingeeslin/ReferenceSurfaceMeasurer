@@ -17,8 +17,8 @@ LOGGER = logging.getLogger("ReferenceSurfaceMeasurer.Measurement")
 
 @dataclass
 class Measurement:
-    width_cm: float
-    height_cm: float
+    width_mm: float
+    height_mm: float
     bbox: Tuple[int, int, int, int]
     contour: Optional[np.ndarray] = None
 
@@ -145,8 +145,8 @@ class ReferenceSurfaceMeasurer:
             self.debug["status"] = "ok"
             self.debug["measurements"] = [
                 {
-                    "width_cm": m.width_cm,
-                    "height_cm": m.height_cm,
+                    "width_mm": m.width_mm,
+                    "height_mm": m.height_mm,
                     "bbox": m.bbox,
                 }
                 for m in measurements
@@ -552,8 +552,8 @@ class ReferenceSurfaceMeasurer:
             self.debug["object_candidate_contours"].append(
                 {
                     "bbox": measurement.bbox,
-                    "width_cm": measurement.width_cm,
-                    "height_cm": measurement.height_cm,
+                    "width_mm": measurement.width_mm,
+                    "height_mm": measurement.height_mm,
                 }
             )
         self._trace("contour_preprocess_complete", {"threshold": threshold})
@@ -607,12 +607,12 @@ class ReferenceSurfaceMeasurer:
         w, h = image_size
         x, y, bw, bh = cv2.boundingRect(contour)
         fraction = (bw * bh) / float(w * h)
-        ref_w_cm = self.reference_size_mm[0] / 10.0
-        ref_h_cm = self.reference_size_mm[1] / 10.0
+        ref_w_mm = self.reference_size_mm[0]
+        ref_h_mm = self.reference_size_mm[1]
 
         if fraction >= 0.22:
-            width_cm = bw / w * ref_w_cm
-            height_cm = bh / h * ref_h_cm
+            width_mm = bw / w * ref_w_mm
+            height_mm = bh / h * ref_h_mm
         else:
             rect = cv2.minAreaRect(contour)
             box = cv2.boxPoints(rect)
@@ -620,21 +620,21 @@ class ReferenceSurfaceMeasurer:
             for idx in range(4):
                 p1 = box[idx]
                 p2 = box[(idx + 1) % 4]
-                dx_cm = (p2[0] - p1[0]) * ref_w_cm / w
-                dy_cm = (p2[1] - p1[1]) * ref_h_cm / h
-                edge_lengths.append(float(math.hypot(dx_cm, dy_cm)))
-            width_cm = (edge_lengths[0] + edge_lengths[2]) / 2.0
-            height_cm = (edge_lengths[1] + edge_lengths[3]) / 2.0
+                dx_mm = (p2[0] - p1[0]) * ref_w_mm / w
+                dy_mm = (p2[1] - p1[1]) * ref_h_mm / h
+                edge_lengths.append(float(math.hypot(dx_mm, dy_mm)))
+            width_mm = (edge_lengths[0] + edge_lengths[2]) / 2.0
+            height_mm = (edge_lengths[1] + edge_lengths[3]) / 2.0
 
         self._trace(
             "object_bbox",
             {
                 "bbox": (x, y, bw, bh),
-                "width_cm": width_cm,
-                "height_cm": height_cm,
+                "width_mm": width_mm,
+                "height_mm": height_mm,
             },
         )
-        return Measurement(float(width_cm), float(height_cm), (int(x), int(y), int(bw), int(bh)), contour=contour)
+        return Measurement(float(width_mm), float(height_mm), (int(x), int(y), int(bw), int(bh)), contour=contour)
 
     def _save_object_debug(self, warp: np.ndarray, contours: Sequence[np.ndarray]) -> None:
         drawn = warp.copy()
