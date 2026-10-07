@@ -133,7 +133,6 @@ def test_contour_to_svg_returns_complete_svg_document():
         ("iswic-folded", 1, fixture_path("iswic-folded", "img_6a1db6e03ad2a7.16505140.jpg"), PORTRAIT_POSTER_BOARD_MM, STANDARD_TOLERANCE_SHIRT_CM),
         ("iswic-folded2", 1, fixture_path("iswic-folded2", "img_6a1db77d7f1973.02751931.jpg"), PORTRAIT_POSTER_BOARD_MM, STANDARD_TOLERANCE_SHIRT_CM),
 
-        # Fails in production
         ("goldy-lightblue", 1, fixture_path("goldy-lightblue", "img_6a1db5fd6d4312.38941970.jpg"), PORTRAIT_POSTER_BOARD_MM, STANDARD_TOLERANCE_SHIRT_CM),
         # ("nike-envelope", 1, fixture_path("nike-envelope", "img_6a7b6ba3eb1276.03284004.jpg"), ENVELOPE_MM, STANDARD_TOLERANCE_SHIRT_CM),
 
@@ -152,6 +151,7 @@ def test_contour_to_svg_returns_complete_svg_document():
         ("nike-letter-one", 1, fixture_path("nike-letter-one", "img_6a7c9d736092f6.97385818.jpg"), LETTER_MM, STANDARD_TOLERANCE_CM),
         ("nike-letter-one-off-axis", 1, fixture_path("nike-letter-one-off-axis", "img_6a838cf9edde22.59423143.jpg"), LETTER_MM, STANDARD_TOLERANCE_CM),
         ("iswic", 1, fixture_path("iswic", "iswic.jpg"), LIGHTBOX_MAT_MM, STANDARD_TOLERANCE_SHIRT_CM),
+        ("iswic-30x30-canvas", 1, fixture_path("iswic-30x30-canvas", "iswic-30x30-canvas.jpg"), SQ_CANVAS_MM, STANDARD_TOLERANCE_SHIRT_CM),
         ("goldy", 1, fixture_path("goldy", "goldy.jpg"), ODDBALL_BLACK_POSTER_BOARD_MM, STANDARD_TOLERANCE_SHIRT_CM),
         ("cherokee", 1, fixture_path("cherokee", "cherokee.jpg"), ODDBALL_BLACK_POSTER_BOARD_MM, STANDARD_TOLERANCE_SHIRT_CM),
     ],
