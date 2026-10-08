@@ -9,7 +9,6 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import cv2
 import numpy as np
-from OpenCVContourSVGConverter import OpenCVContourSVGConverter
 
 
 LOGGER = logging.getLogger("ReferenceSurfaceMeasurer.Measurement")
@@ -152,7 +151,10 @@ class ReferenceSurfaceMeasurer:
                 for m in measurements
             ]
             if object_contours:
-                self.debug["object_contour_svg"] = self._contour_to_svg(object_contours[0], (measurements[0].width_mm, measurements[0].height_mm))
+                self.debug["object_contour_svg"] = self._contour_to_svg(
+                    object_contours[0],
+                    (measurements[0].width_mm, measurements[0].height_mm),
+                )
             self._trace("object_measured", {"count": len(measurements)})
             return self._return(measurements, return_debug)
         except Exception as exc:  # pragma: no cover - defensive debug surface
@@ -648,24 +650,62 @@ class ReferenceSurfaceMeasurer:
             cv2.polylines(min_rect, [box], True, (0, 0, 255), max(1, int(min(warp.shape[:2]) * 0.006)))
         self._save_debug("object_minAreaRect", min_rect)
 
-    def _contour_to_svg(self, contour: np.ndarray, canvas_size = None) -> str:
+    @staticmethod
+    def _format_svg_number(value: float, precision: int = 2) -> str:
+        rounded = round(float(value), precision)
+        if rounded == 0:
+            rounded = 0.0
+        return f"{rounded:.{precision}f}".rstrip("0").rstrip(".")
+
+    @staticmethod
+    def _format_viewbox_number(value: float) -> str:
+        rounded = round(float(value), 2)
+        if rounded == 0:
+            rounded = 0.0
+        return f"{rounded:.2f}"
+
+    def _contour_to_svg(self, contour: np.ndarray, canvas_size: Optional[Tuple[float, float]] = None) -> str:
         points = contour.reshape(-1, 2)
         if len(points) == 0:
             return ""
 
-        simplify_epsilon = 0.0
         if len(points) > 250:
             simplify_epsilon = 0.004 * cv2.arcLength(contour, True)
+            points = cv2.approxPolyDP(contour, simplify_epsilon, True).reshape(-1, 2)
 
-        svg, _, _ = OpenCVContourSVGConverter.convert(
-            contour,
-            canvas_size=canvas_size,
-            stroke="#00C853",
-            stroke_width=2,
-            fill="none",
-            close_paths=True,
-            simplify_epsilon=simplify_epsilon,
-            precision=0,
-            segment_name="object-contour",
+        min_x = float(np.min(points[:, 0]))
+        min_y = float(np.min(points[:, 1]))
+        source_width = float(np.max(points[:, 0]) - min_x)
+        source_height = float(np.max(points[:, 1]) - min_y)
+
+        if canvas_size is None:
+            target_width = source_width
+            target_height = source_height
+        else:
+            target_width, target_height = (float(canvas_size[0]), float(canvas_size[1]))
+
+        scale_x = target_width / source_width if source_width else 1.0
+        scale_y = target_height / source_height if source_height else 1.0
+        scaled_points = [
+            (
+                (float(point[0]) - min_x) * scale_x,
+                (float(point[1]) - min_y) * scale_y,
+            )
+            for point in points
+        ]
+        point_list = " ".join(
+            f"{self._format_svg_number(x)},{self._format_svg_number(y)}"
+            for x, y in scaled_points
         )
-        return svg
+
+        width = self._format_svg_number(target_width)
+        height = self._format_svg_number(target_height)
+        viewbox_width = self._format_viewbox_number(target_width)
+        viewbox_height = self._format_viewbox_number(target_height)
+        return (
+            f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}px" height="{height}px" '
+            f'viewBox="0.00 0.00 {viewbox_width} {viewbox_height}">'
+            f'<polygon id="object-contour" points="{point_list}" stroke="#00C853" '
+            f'stroke-width="2" fill="none" />'
+            f'</svg>'
+        )

@@ -125,6 +125,30 @@ def test_contour_to_svg_returns_complete_svg_document():
     assert polygon.attrib["points"] == "0,0 20,0 20,30 0,30"
 
 
+def test_contour_to_svg_scales_points_to_requested_canvas():
+    contour = np.array(
+        [
+            [[10, 20]],
+            [[30, 20]],
+            [[30, 50]],
+            [[10, 50]],
+        ],
+        dtype=np.int32,
+    )
+
+    svg = ReferenceSurfaceMeasurer()._contour_to_svg(contour, canvas_size=(100, 150))
+
+    root = ET.fromstring(svg)
+    namespace = "{http://www.w3.org/2000/svg}"
+    assert root.attrib["width"] == "100px"
+    assert root.attrib["height"] == "150px"
+    assert root.attrib["viewBox"] == "0.00 0.00 100.00 150.00"
+
+    polygon = root.find(f"{namespace}polygon")
+    assert polygon is not None
+    assert polygon.attrib["points"] == "0,0 100,0 100,150 0,150"
+
+
 @pytest.mark.parametrize(
     "slug, scale, image_path, reference_size_mm, tol_mm",
     [
@@ -242,6 +266,8 @@ def test_measure(slug, scale, image_path, reference_size_mm, expected_count, exp
     )
     measurer.slug = slug
     measurements, debug = measurer.measure(img, return_debug=True)
+
+    print(debug["object_contour_svg"])
 
     with print_debug_on_failure(slug, lambda: debug):
         print(f"Expected {expected_count} contours, got {len(measurements)}: ")
