@@ -255,6 +255,7 @@ def test_mock_box_white_blue_one_detects_large_central_shirt_contour(tmp_path):
         # Inches 27.75 x 27.375
         ("iswic-30x30-canvas", 1, fixture_path("iswic-30x30-canvas", "iswic-30x30-canvas.jpg"), SQ_CANVAS_MM, 1, 704.85, 695.325, STANDARD_TOLERANCE_SHIRT_MM),
         ("iswic", 2, fixture_path("iswic", "iswic.jpg"), LIGHTBOX_MAT_MM, 1, 704.85, 695.325, STANDARD_TOLERANCE_SHIRT_MM),
+        ("ades-light-blue-1", 2, fixture_path("ades-light-blue-1", "ades-light-blue-1.jpg"), SQ_CANVAS_MM, 1,  654.05, 536.575, STANDARD_TOLERANCE_SHIRT_MM),
     ],
 )
 def test_measure(slug, scale, image_path, reference_size_mm, expected_count, expected_w_mm, expected_h_mm, tol_mm, tmp_path, contour_comparison):
