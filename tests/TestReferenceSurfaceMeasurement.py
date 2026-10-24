@@ -180,7 +180,7 @@ def test_contour_to_svg_scales_points_to_requested_canvas():
         ("cherokee", 1, fixture_path("cherokee", "cherokee.jpg"), ODDBALL_BLACK_POSTER_BOARD_MM, STANDARD_TOLERANCE_SHIRT_MM),
     ],
 )
-def test_images_processes(slug, scale, image_path, reference_size_mm, tol_mm, tmp_path):
+def test_images_processes(slug, scale, image_path, reference_size_mm, tol_mm, tmp_path, contour_comparison):
     img = cv2.imread(str(image_path))
     assert img is not None, f"Could not load image at path: {image_path}"
 
@@ -192,6 +192,8 @@ def test_images_processes(slug, scale, image_path, reference_size_mm, tol_mm, tm
     )
     measurer.slug = slug
     measurements, debug = measurer.measure(img, return_debug=True)
+
+    contour_comparison(slug, scale, img, measurements, debug)
 
     with print_debug_on_failure(slug, lambda: debug):
         assert measurements
@@ -255,7 +257,7 @@ def test_mock_box_white_blue_one_detects_large_central_shirt_contour(tmp_path):
         ("iswic", 2, fixture_path("iswic", "iswic.jpg"), LIGHTBOX_MAT_MM, 1, 704.85, 695.325, STANDARD_TOLERANCE_SHIRT_MM),
     ],
 )
-def test_measure(slug, scale, image_path, reference_size_mm, expected_count, expected_w_mm, expected_h_mm, tol_mm, tmp_path):
+def test_measure(slug, scale, image_path, reference_size_mm, expected_count, expected_w_mm, expected_h_mm, tol_mm, tmp_path, contour_comparison):
     img = cv2.imread(str(image_path))
     assert img is not None, f"Could not load image at path: {image_path}"
 
@@ -267,6 +269,8 @@ def test_measure(slug, scale, image_path, reference_size_mm, expected_count, exp
     )
     measurer.slug = slug
     measurements, debug = measurer.measure(img, return_debug=True)
+
+    contour_comparison(slug, scale, img, measurements, debug)
 
     print(debug["object_contour_svg"])
 
