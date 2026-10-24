@@ -20,6 +20,8 @@ class Measurement:
     height_mm: float
     bbox: Tuple[int, int, int, int]
     contour: Optional[np.ndarray] = None
+    # Consecutive edges 0->1 and 1->2 are the measured width and height.
+    measurement_box: Optional[np.ndarray] = None
 
 
 @dataclass
@@ -84,6 +86,7 @@ class ReferenceSurfaceMeasurer:
     ) -> None:
         self.scale = float(scale)
         self.reference_size_mm = tuple(float(v) for v in reference_size_mm)
+        self._warp_reference_size_mm = self.reference_size_mm
         self.debug_path = Path(debug_path) if debug_path is not None else None
         self.save_debug_images = save_debug_images
         self.slug = "object"
@@ -96,6 +99,7 @@ class ReferenceSurfaceMeasurer:
 
     def measure(self, img: np.ndarray, return_debug: bool = False):
         self._debug_counter = 0
+        self._warp_reference_size_mm = self.reference_size_mm
         self.debug = {
             "status": "running",
             "errors": [],
@@ -473,12 +477,11 @@ class ReferenceSurfaceMeasurer:
         source_w, source_h = _quad_side_lengths(ordered)
         ref_w_mm, ref_h_mm = self.reference_size_mm
 
-        # The tests and existing debug images treat the first physical dimension as
-        # the output x-axis. Rotate the source quad when the visible page is lying
-        # landscape but the known physical dimensions are portrait.
+        # Keep the photo's corner order. Match physical dimensions to the visible
+        # axes instead of rotating the subject to fit the configured axis order.
         if (source_w > source_h) != (ref_w_mm > ref_h_mm):
-            ordered = np.array([ordered[1], ordered[2], ordered[3], ordered[0]], dtype=np.float32)
-            source_w, source_h = source_h, source_w
+            ref_w_mm, ref_h_mm = ref_h_mm, ref_w_mm
+        self._warp_reference_size_mm = (ref_w_mm, ref_h_mm)
 
         px_per_mm = max(1.0, min(source_w / max(ref_w_mm, 1e-6), source_h / max(ref_h_mm, 1e-6)))
         px_per_mm *= max(0.5, self.scale)
@@ -609,12 +612,12 @@ class ReferenceSurfaceMeasurer:
         w, h = image_size
         x, y, bw, bh = cv2.boundingRect(contour)
         fraction = (bw * bh) / float(w * h)
-        ref_w_mm = self.reference_size_mm[0]
-        ref_h_mm = self.reference_size_mm[1]
+        ref_w_mm, ref_h_mm = self._warp_reference_size_mm
 
         if fraction >= 0.22:
             width_mm = bw / w * ref_w_mm
             height_mm = bh / h * ref_h_mm
+            box = np.float32([[x, y], [x + bw, y], [x + bw, y + bh], [x, y + bh]])
         else:
             rect = cv2.minAreaRect(contour)
             box = cv2.boxPoints(rect)
@@ -636,7 +639,10 @@ class ReferenceSurfaceMeasurer:
                 "height_mm": height_mm,
             },
         )
-        return Measurement(float(width_mm), float(height_mm), (int(x), int(y), int(bw), int(bh)), contour=contour)
+        return Measurement(
+            float(width_mm), float(height_mm), (int(x), int(y), int(bw), int(bh)),
+            contour=contour, measurement_box=box,
+        )
 
     def _save_object_debug(self, warp: np.ndarray, contours: Sequence[np.ndarray]) -> None:
         drawn = warp.copy()
