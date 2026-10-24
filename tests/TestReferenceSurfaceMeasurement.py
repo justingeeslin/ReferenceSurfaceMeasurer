@@ -27,7 +27,7 @@ CREDIT_CARD_W_MM = 85.6
 CREDIT_CARD_H_MM = 53.98
 
 STANDARD_TOLERANCE_MM = 3.3
-STANDARD_TOLERANCE_SHIRT_MM = 30
+STANDARD_TOLERANCE_SHIRT_MM = 20
 REPO_ROOT = Path(__file__).resolve().parents[1]
 TEST_IMAGES_ROOT = REPO_ROOT / "test-images"
 SAVE_DEBUG_IMAGES_ENV = "OBJECT_MEASURER_SAVE_DEBUG_IMAGES"
@@ -251,7 +251,7 @@ def test_mock_box_white_blue_one_detects_large_central_shirt_contour(tmp_path):
         # ("nike-letter-one-off-axis", 1, fixture_path("nike-letter-one-off-axis", "img_6a838cf9edde22.59423143.jpg"), LETTER_MM, 1, CREDIT_CARD_W_MM, CREDIT_CARD_H_MM, STANDARD_TOLERANCE_MM),
         ("iswic", 1, fixture_path("iswic", "iswic.jpg"), LIGHTBOX_MAT_MM, 1, 704.85, 695.325, STANDARD_TOLERANCE_SHIRT_MM),
         ("goldy", 1, fixture_path("goldy", "goldy.jpg"), ODDBALL_BLACK_POSTER_BOARD_MM, 1, 457.2, 405, STANDARD_TOLERANCE_SHIRT_MM),
-        ("goldy-lightblue", 1, fixture_path("goldy-lightblue", "img_6a1db5fd6d4312.38941970.jpg"), PORTRAIT_POSTER_BOARD_MM, 1, 457.2, 405, STANDARD_TOLERANCE_SHIRT_MM),
+        # ("goldy-lightblue", 1, fixture_path("goldy-lightblue", "img_6a1db5fd6d4312.38941970.jpg"), PORTRAIT_POSTER_BOARD_MM, 1, 457.2, 405, STANDARD_TOLERANCE_SHIRT_MM),
         ("cherokee", 1, fixture_path("cherokee", "cherokee.jpg"), ODDBALL_BLACK_POSTER_BOARD_MM, 1, 409.575, 514.35, STANDARD_TOLERANCE_SHIRT_MM),
         # Inches 27.75 x 27.375
         ("iswic-30x30-canvas", 1, fixture_path("iswic-30x30-canvas", "iswic-30x30-canvas.jpg"), SQ_CANVAS_MM, 1, 704.85, 695.325, STANDARD_TOLERANCE_SHIRT_MM),

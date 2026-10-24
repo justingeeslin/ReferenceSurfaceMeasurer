@@ -513,7 +513,14 @@ class ReferenceSurfaceMeasurer:
 
         border_samples = lab[border].reshape(-1, 3)
         background = np.median(border_samples, axis=0)
-        distance = np.linalg.norm(lab - background, axis=2).astype(np.uint8)
+        # Canvas illumination varies much more in lightness than in color.
+        # Discount channels that already vary across the reference border so a
+        # bright patch or shadow cannot extend a pale garment's silhouette.
+        # The robust range ignores isolated edge debris; the floor preserves
+        # the existing distance scale on uniform backgrounds.
+        background_range = np.percentile(border_samples, 90, axis=0) - np.percentile(border_samples, 10, axis=0)
+        channel_weights = np.minimum(1.0, 12.0 / np.maximum(background_range, 1.0))
+        distance = np.clip(np.linalg.norm((lab - background) * channel_weights, axis=2), 0, 255).astype(np.uint8)
         otsu_threshold, _ = cv2.threshold(distance, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
         threshold = max(20.0, float(otsu_threshold) * 0.8)
         mask = np.where(distance > threshold, 255, 0).astype(np.uint8)
@@ -561,7 +568,12 @@ class ReferenceSurfaceMeasurer:
                     "height_mm": measurement.height_mm,
                 }
             )
-        self._trace("contour_preprocess_complete", {"threshold": threshold})
+        self._trace("contour_preprocess_complete", {
+            "threshold": threshold,
+            "background_lab": background.tolist(),
+            "background_range_lab": background_range.tolist(),
+            "channel_weights_lab": channel_weights.tolist(),
+        })
         self._trace("contour_find_complete", {"object_candidate_count": len(measurements)})
         return measurements, measured_contours, closed_small
 

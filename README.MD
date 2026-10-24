@@ -20,6 +20,12 @@ portrait or landscape photos can use the same reference size. Measurement axes
 follow the corrected photo. Inputs are decoded image arrays; any camera rotation
 metadata must be applied when loading the photo.
 
+Foreground segmentation estimates background color and its variation from the
+reference border. Lab channels with a wide background range receive less weight,
+so uneven illumination on the canvas does not add bright or shaded patches to a
+pale shirt's contour. The debug trace records the background range and channel
+weights alongside the segmentation threshold.
+
 ![Photo and contour comparison](assets/contour-comparison.jpg)
 
 Regenerate this asset with the full test suite:
