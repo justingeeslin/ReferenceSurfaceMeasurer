@@ -4,6 +4,29 @@ Run the suite from the repository root:
 python -m pytest
 ```
 
+`test_svg_background.py` includes examples of SVGs with an embedded base64 PNG
+and a contour polygon above it. Tests decode the PNG and compare every pixel
+against the dominant contour's crop from the corrected photo, using square and
+rectangular garment references at two scales. Synthetic examples also verify
+canvas scaling, image/shape order, and alignment after contour simplification.
+
+These nine cases also generate `assets/svg-background-comparison.png`: one card
+per test with the input, the decoded PNG crop, and the rendered returned SVG.
+The cards show the actual pytest outcome, pixel/canvas dimensions, and the
+empty-input reset result. Failures and skips still receive cards, with unavailable
+outputs labeled. The header includes the selected SVG test totals and run time
+in America/Chicago. SVG previews use `rsvg-convert` from librsvg; if it is absent,
+the card reports the unavailable preview while retaining the input and PNG crop.
+
+Regenerate just this summary with:
+
+```sh
+python -m pytest tests/test_svg_background.py
+```
+
+Running a subset replaces the summary with the selected SVG cases. Runs without
+SVG background cases leave the image unchanged.
+
 The photo tests generate a single contact sheet at
 `assets/contour-comparison.jpg`. This asset can be checked in and is embedded in
 the project README. Each case shows the original photo,

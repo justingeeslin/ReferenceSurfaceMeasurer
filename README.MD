@@ -3,6 +3,44 @@
 pip install --upgrade --force-reinstall --no-cache-dir .
 ```
 
+## SVG with a cropped photo background
+
+After a successful measurement, `measurer.image_base64` and
+`debug["object_image_base64"]` contain the same base64-encoded PNG (without a data
+URI prefix). The photo is perspective-corrected and cropped to the dominant
+contour's axis-aligned bounding box, including its last pixel row and column.
+The crop retains the photo background within that rectangle.
+
+`measurer.svg` (also `debug["object_contour_svg"]`) is a complete SVG containing an
+`<image href="data:image/png;base64,...">` followed by the contour polygon. The
+image fills the SVG canvas beneath the outline. Both use the same crop
+coordinates and canvas scaling, including when the polygon is simplified.
+The photo and SVG properties are `None` before measurement or if no object is
+found.
+
+```python
+import base64
+from pathlib import Path
+
+import cv2
+from ReferenceSurfaceMeasurer import ReferenceSurfaceMeasurer
+
+measurer = ReferenceSurfaceMeasurer(reference_size_mm=(762, 762))
+measurements, debug = measurer.measure(cv2.imread("garment.jpg"), return_debug=True)
+if debug["status"] == "ok":
+    Path("garment.png").write_bytes(base64.b64decode(measurer.image_base64))
+    Path("garment.svg").write_text(measurer.svg, encoding="utf-8")
+```
+
+The SVG background tests produce one image showing the input, decoded PNG crop,
+and rendered SVG for all nine cases, including their test results:
+
+![SVG background test inputs and outputs](assets/svg-background-comparison.png)
+
+Regenerate it with `python -m pytest tests/test_svg_background.py`. Rendering the
+SVG previews requires `rsvg-convert` from librsvg. Each card also shows its image
+dimensions and the checks performed, including the empty-input reset case.
+
 ## Photo and contour comparison
 
 Each case shows the original photo, the perspective-corrected photo, and the

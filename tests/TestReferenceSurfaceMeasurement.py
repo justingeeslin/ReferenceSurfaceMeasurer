@@ -118,6 +118,7 @@ def test_contour_to_svg_returns_complete_svg_document():
     assert root.attrib["width"] == "20px"
     assert root.attrib["height"] == "30px"
     assert root.attrib["viewBox"] == "0.00 0.00 20.00 30.00"
+    assert root.find(f"{namespace}image") is None
 
     polygon = root.find(f"{namespace}polygon")
     assert polygon is not None
@@ -200,6 +201,7 @@ def test_images_processes(slug, scale, image_path, reference_size_mm, tol_mm, tm
         assert debug["status"] == "ok"
         print(measurements)
         assert debug["object_contour_svg"] is not None
+        assert debug["object_image_base64"] is not None
         assert debug["trace"]
 
 
@@ -274,8 +276,6 @@ def test_measure(slug, scale, image_path, reference_size_mm, expected_count, exp
 
     contour_comparison(slug, scale, img, measurements, debug)
 
-    print(debug["object_contour_svg"])
-
     with print_debug_on_failure(slug, lambda: debug):
         print(f"Expected {expected_count} contours, got {len(measurements)}: ")
         print(f"{[(m.width_mm, m.height_mm) for m in measurements]}")
@@ -302,8 +302,8 @@ def test_measure(slug, scale, image_path, reference_size_mm, expected_count, exp
             assert ok_normal or ok_swapped
             break
 
-        print(debug['object_contour_svg'])
         assert debug['object_contour_svg'] is not None
+        assert debug['object_image_base64'] is not None
 
 
 def test_failed_measurement_includes_debug_trace_and_logs(caplog):

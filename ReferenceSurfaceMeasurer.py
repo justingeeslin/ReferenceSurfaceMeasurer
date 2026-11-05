@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 from dataclasses import dataclass
 import logging
 import math
@@ -97,6 +98,11 @@ class ReferenceSurfaceMeasurer:
     def svg(self) -> Optional[str]:
         return self.debug.get("object_contour_svg")
 
+    @property
+    def image_base64(self) -> Optional[str]:
+        """Base64 PNG of the dominant contour's crop in the corrected photo."""
+        return self.debug.get("object_image_base64")
+
     def measure(self, img: np.ndarray, return_debug: bool = False):
         self._debug_counter = 0
         self._warp_reference_size_mm = self.reference_size_mm
@@ -110,6 +116,7 @@ class ReferenceSurfaceMeasurer:
             "debug_images": [],
             "trace": [],
             "object_contour_svg": None,
+            "object_image_base64": None,
             "imgWarp": None,
         }
 
@@ -155,9 +162,17 @@ class ReferenceSurfaceMeasurer:
                 for m in measurements
             ]
             if object_contours:
+                x, y, width, height = measurements[0].bbox
+                cropped_photo = warp[y:y + height, x:x + width]
+                encoded, png = cv2.imencode(".png", cropped_photo)
+                if not encoded:
+                    raise ValueError("Could not encode the cropped object photo as PNG.")
+                image_base64 = base64.b64encode(png).decode("ascii")
+                self.debug["object_image_base64"] = image_base64
                 self.debug["object_contour_svg"] = self._contour_to_svg(
                     object_contours[0],
                     (measurements[0].width_mm, measurements[0].height_mm),
+                    image_base64=image_base64,
                 )
             self._trace("object_measured", {"count": len(measurements)})
             return self._return(measurements, return_debug)
@@ -682,19 +697,29 @@ class ReferenceSurfaceMeasurer:
             rounded = 0.0
         return f"{rounded:.2f}"
 
-    def _contour_to_svg(self, contour: np.ndarray, canvas_size: Optional[Tuple[float, float]] = None) -> str:
+    def _contour_to_svg(
+        self,
+        contour: np.ndarray,
+        canvas_size: Optional[Tuple[float, float]] = None,
+        image_base64: Optional[str] = None,
+    ) -> str:
         points = contour.reshape(-1, 2)
         if len(points) == 0:
             return ""
 
+        if image_base64 is not None:
+            # Use the same pixel bounds as the photo crop, including the last
+            # row/column. Simplifying the polygon must not shift this frame.
+            min_x, min_y, source_width, source_height = cv2.boundingRect(contour)
+        else:
+            min_x = float(np.min(points[:, 0]))
+            min_y = float(np.min(points[:, 1]))
+            source_width = float(np.max(points[:, 0]) - min_x)
+            source_height = float(np.max(points[:, 1]) - min_y)
+
         if len(points) > 250:
             simplify_epsilon = 0.004 * cv2.arcLength(contour, True)
             points = cv2.approxPolyDP(contour, simplify_epsilon, True).reshape(-1, 2)
-
-        min_x = float(np.min(points[:, 0]))
-        min_y = float(np.min(points[:, 1]))
-        source_width = float(np.max(points[:, 0]) - min_x)
-        source_height = float(np.max(points[:, 1]) - min_y)
 
         if canvas_size is None:
             target_width = source_width
@@ -720,9 +745,15 @@ class ReferenceSurfaceMeasurer:
         height = self._format_svg_number(target_height)
         viewbox_width = self._format_viewbox_number(target_width)
         viewbox_height = self._format_viewbox_number(target_height)
+        background = (
+            f'<image id="object-photo" x="0" y="0" width="{width}" height="{height}" '
+            f'preserveAspectRatio="none" href="data:image/png;base64,{image_base64}" />'
+            if image_base64 is not None else ""
+        )
         return (
             f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}px" height="{height}px" '
             f'viewBox="0.00 0.00 {viewbox_width} {viewbox_height}">'
+            f'{background}'
             f'<polygon id="object-contour" points="{point_list}" stroke="#00C853" '
             f'stroke-width="2" fill="none" />'
             f'</svg>'

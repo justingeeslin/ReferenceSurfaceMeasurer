@@ -1,7 +1,11 @@
-"""Build one visual comparison artifact from the photo tests in each run."""
+"""Build visual comparison artifacts from the photo and SVG background tests."""
 
+import base64
 from pathlib import Path
 from datetime import datetime
+import shutil
+import subprocess
+import xml.etree.ElementTree as ET
 from zoneinfo import ZoneInfo
 
 import cv2
@@ -240,3 +244,133 @@ def contour_comparison(request, _contour_comparison):
     # Include failed photo loads too, even when the test never reaches record().
     record(params["slug"], params["scale"], None, [], {})
     return record
+
+
+SVG_PANEL_SIZE = 280
+SVG_CARD_W = SVG_PANEL_SIZE * 3 + GAP * 4
+SVG_CARD_H = 450
+
+
+def _svg_summary_thumbnail(image, bounds=None):
+    if image is not None:
+        if image.ndim == 2:
+            image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+        if bounds is not None:
+            image = image.copy()
+            x, y, width, height = bounds
+            cv2.rectangle(image, (x, y), (x + width - 1, y + height - 1),
+                          (0, 200, 90), max(1, round(min(image.shape[:2]) * 0.006)))
+    return cv2.resize(photo_panel(image), (SVG_PANEL_SIZE, SVG_PANEL_SIZE), interpolation=cv2.INTER_AREA)
+
+
+def _render_svg_preview(svg):
+    renderer = shutil.which("rsvg-convert")
+    if renderer is None:
+        raise OSError("SVG preview unavailable: install librsvg (rsvg-convert).")
+    result = subprocess.run(
+        [renderer, "--format=png", "--width=560", "--height=560",
+         "--keep-aspect-ratio", "--background-color=white"],
+        input=svg.encode("utf-8"), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        check=True, timeout=10,
+    )
+    image = cv2.imdecode(np.frombuffer(result.stdout, dtype=np.uint8), cv2.IMREAD_COLOR)
+    if image is None:
+        raise ValueError("SVG renderer did not return a PNG.")
+    return image
+
+
+def pytest_collection_finish(session):
+    # Register before setup so skipped cases and fixture failures still appear.
+    for item in session.items:
+        if "svg_background_comparison" not in item.fixturenames:
+            continue
+        cases = session.config.__dict__.setdefault("_svg_background_cases", {})
+        cases[item.nodeid] = {
+            "title": item.name.partition("[")[0].removeprefix("test_").replace("_", " ")[:68],
+            "panels": [_svg_summary_thumbnail(None) for _ in range(3)],
+            "labels": ["Input", "Base64 PNG", "Returned SVG"],
+            "notes": ["No output captured; see the pytest result."],
+            "preview_error": None,
+        }
+
+
+@pytest.fixture
+def svg_background_comparison(request):
+    case = request.config.__dict__["_svg_background_cases"][request.node.nodeid]
+
+    def record(*, title=None, source=None, bounds=None, image_base64=None, svg=None, notes=None):
+        if title is not None:
+            case["title"] = title
+        if source is not None:
+            case["panels"][0] = _svg_summary_thumbnail(source, bounds)
+            case["labels"][0] = f"Input ({source.shape[1]} x {source.shape[0]} px)"
+        if notes is not None:
+            case["notes"] = list(notes)
+        # Keep a card even if output decoding/rendering fails. The assertions in
+        # the test determine its outcome; the card also reports preview errors.
+        try:
+            if image_base64 is not None:
+                png = base64.b64decode(image_base64, validate=True)
+                crop = cv2.imdecode(np.frombuffer(png, dtype=np.uint8), cv2.IMREAD_COLOR)
+                if crop is None:
+                    raise ValueError("Cropped PNG could not be decoded.")
+                case["panels"][1] = _svg_summary_thumbnail(crop)
+                case["labels"][1] = f"PNG crop ({crop.shape[1]} x {crop.shape[0]} px)"
+            if svg is not None:
+                root = ET.fromstring(svg)
+                width, height = root.attrib["viewBox"].split()[2:]
+                case["labels"][2] = f"SVG ({float(width):g} x {float(height):g} units)"
+                case["panels"][2] = _svg_summary_thumbnail(_render_svg_preview(svg))
+        except (ValueError, OSError, ET.ParseError, subprocess.SubprocessError) as exc:
+            case["preview_error"] = str(exc).splitlines()[0]
+
+    return record
+
+
+def pytest_sessionfinish(session, exitstatus):
+    cases = session.config.__dict__.get("_svg_background_cases", {})
+    if not cases:
+        return
+    reports = session.config.__dict__.get("_comparison_reports", {})
+    columns = min(3, len(cases))
+    rows = (len(cases) + columns - 1) // columns
+    sheet = np.full((118 + rows * (SVG_CARD_H + GAP),
+                     GAP + columns * (SVG_CARD_W + GAP), 3), 225, dtype=np.uint8)
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    cv2.putText(sheet, "SVG background tests: input / cropped PNG / returned SVG", (GAP, 34),
+                font, 0.85, (35, 35, 35), 2, cv2.LINE_AA)
+    outcomes = [reports.get(nodeid, "UNKNOWN") for nodeid in cases]
+    summary = " | ".join(f"{outcomes.count(status)} {status}"
+                         for status in ("PASS", "FAIL", "SKIP", "UNKNOWN") if status in outcomes)
+    cv2.putText(sheet, f"{len(cases)} selected SVG test cases | {summary}", (GAP, 64),
+                font, 0.6, (45, 45, 45), 1, cv2.LINE_AA)
+    timestamp = datetime.now(ZoneInfo("America/Chicago")).strftime("%Y-%m-%d %H:%M:%S %Z")
+    cv2.putText(sheet, f"Run: {timestamp} | SVG panels use the returned markup; previews require librsvg",
+                (GAP, 91), font, 0.5, (65, 65, 65), 1, cv2.LINE_AA)
+    for index, (nodeid, case) in enumerate(cases.items()):
+        card = np.full((SVG_CARD_H, SVG_CARD_W, 3), 255, dtype=np.uint8)
+        outcome = reports.get(nodeid, "UNKNOWN")
+        color = (35, 130, 35) if outcome == "PASS" else (30, 40, 190)
+        cv2.putText(card, f"{index + 1:02d} | {case['title']}", (GAP, 29),
+                    font, 0.57, (35, 35, 35), 1, cv2.LINE_AA)
+        cv2.putText(card, outcome, (SVG_CARD_W - 94, 29), font, 0.65, color, 2, cv2.LINE_AA)
+        for panel_index, (label, panel) in enumerate(zip(case["labels"], case["panels"])):
+            x = GAP + panel_index * (SVG_PANEL_SIZE + GAP)
+            cv2.putText(card, label, (x, 60), font, 0.44, (65, 65, 65), 1, cv2.LINE_AA)
+            card[74:74 + SVG_PANEL_SIZE, x:x + SVG_PANEL_SIZE] = panel
+        notes = list(case["notes"])
+        if case["preview_error"]:
+            notes.append(case["preview_error"])
+        for note_index, note in enumerate(notes[:3]):
+            cv2.putText(card, note, (GAP, 379 + note_index * 24),
+                        font, 0.46, (55, 55, 55), 1, cv2.LINE_AA)
+        x = GAP + (index % columns) * (SVG_CARD_W + GAP)
+        y = 118 + (index // columns) * (SVG_CARD_H + GAP)
+        sheet[y:y + SVG_CARD_H, x:x + SVG_CARD_W] = card
+    path = Path(session.config.rootpath) / "assets" / "svg-background-comparison.png"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not cv2.imwrite(str(path), sheet):
+        raise OSError(f"Could not write SVG background comparison: {path}")
+    reporter = session.config.pluginmanager.get_plugin("terminalreporter")
+    if reporter:
+        reporter.write_line(f"SVG background comparison: {path}")
