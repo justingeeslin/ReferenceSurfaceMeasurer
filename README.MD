@@ -12,9 +12,11 @@ contour's axis-aligned bounding box, including its last pixel row and column.
 The crop retains the photo background within that rectangle.
 
 `measurer.svg` (also `debug["object_contour_svg"]`) is a complete SVG containing an
-`<image href="data:image/png;base64,...">` followed by the contour polygon. The
-image fills the SVG canvas beneath the outline. Both use the same crop
-coordinates and canvas scaling, including when the polygon is simplified.
+`<image href="data:image/png;base64,...">` followed by the contour polygon. A
+`<clipPath>` uses the same polygon points to make the photo outside the outline
+transparent. The image and clip use the same crop coordinates and canvas scaling,
+including when the polygon is simplified. The outline remains visible above the
+clipped photo.
 The photo and SVG properties are `None` before measurement or if no object is
 found.
 
@@ -33,7 +35,8 @@ if debug["status"] == "ok":
 ```
 
 The SVG background tests produce one image showing the input, decoded PNG crop,
-and rendered SVG for all nine cases, including their test results:
+and rendered SVG for all cases, including their test results. A checkerboard
+shows transparent areas outside the outline:
 
 ![SVG background test inputs and outputs](assets/svg-background-comparison.png)
 

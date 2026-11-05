@@ -746,8 +746,11 @@ class ReferenceSurfaceMeasurer:
         viewbox_width = self._format_viewbox_number(target_width)
         viewbox_height = self._format_viewbox_number(target_height)
         background = (
+            f'<defs><clipPath id="object-photo-clip" clipPathUnits="userSpaceOnUse">'
+            f'<polygon points="{point_list}" /></clipPath></defs>'
             f'<image id="object-photo" x="0" y="0" width="{width}" height="{height}" '
-            f'preserveAspectRatio="none" href="data:image/png;base64,{image_base64}" />'
+            f'preserveAspectRatio="none" clip-path="url(#object-photo-clip)" '
+            f'href="data:image/png;base64,{image_base64}" />'
             if image_base64 is not None else ""
         )
         return (

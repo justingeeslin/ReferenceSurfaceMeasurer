@@ -9,13 +9,18 @@ and a contour polygon above it. Tests decode the PNG and compare every pixel
 against the dominant contour's crop from the corrected photo, using square and
 rectangular garment references at two scales. Synthetic examples also verify
 canvas scaling, image/shape order, and alignment after contour simplification.
+The SVG photo is clipped to the same polygon as the outline. Two rendering tests
+also check transparent pixels in a concave contour's notch, opaque photo pixels
+inside it, and the visible outline, at native and stretched canvas dimensions.
+These alpha checks are skipped if `rsvg-convert` is unavailable.
 
-These nine cases also generate `assets/svg-background-comparison.png`: one card
+These cases also generate `assets/svg-background-comparison.png`: one card
 per test with the input, the decoded PNG crop, and the rendered returned SVG.
 The cards show the actual pytest outcome, pixel/canvas dimensions, and the
 empty-input reset result. Failures and skips still receive cards, with unavailable
 outputs labeled. The header includes the selected SVG test totals and run time
-in America/Chicago. SVG previews use `rsvg-convert` from librsvg; if it is absent,
+in America/Chicago. Transparent SVG pixels are displayed over a checkerboard.
+SVG previews use `rsvg-convert` from librsvg; if it is absent,
 the card reports the unavailable preview while retaining the input and PNG crop.
 
 Regenerate just this summary with:

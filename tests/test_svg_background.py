@@ -21,6 +21,23 @@ def decode_png(payload):
     return image
 
 
+def assert_photo_is_clipped(root):
+    defs, image, polygon = list(root)
+    assert defs.tag == f"{SVG_NS}defs"
+    assert image.tag == f"{SVG_NS}image"
+    assert polygon.tag == f"{SVG_NS}polygon"
+    assert image.attrib["clip-path"] == "url(#object-photo-clip)"
+    clip = defs.find(f"{SVG_NS}clipPath")
+    assert clip is not None
+    assert clip.attrib["id"] == "object-photo-clip"
+    assert clip.attrib["clipPathUnits"] == "userSpaceOnUse"
+    clip_polygon = clip.find(f"{SVG_NS}polygon")
+    assert clip_polygon is not None
+    assert clip_polygon.attrib["points"] == polygon.attrib["points"]
+    assert "clip-path" not in polygon.attrib
+    return image, polygon
+
+
 @pytest.mark.parametrize(
     "canvas_size, expected_size, expected_points",
     [
@@ -52,9 +69,7 @@ def test_svg_embeds_cropped_photo_below_scaled_contour(
     )
 
     root = ET.fromstring(svg)
-    image, polygon = list(root)
-    assert image.tag == f"{SVG_NS}image"
-    assert polygon.tag == f"{SVG_NS}polygon"
+    image, polygon = assert_photo_is_clipped(root)
     assert image.attrib["id"] == "object-photo"
     assert image.attrib["x"] == image.attrib["y"] == "0"
     assert (float(image.attrib["width"]), float(image.attrib["height"])) == expected_size
@@ -91,11 +106,45 @@ def test_simplifying_contour_keeps_original_photo_crop_coordinates(svg_backgroun
     )
 
     root = ET.fromstring(svg)
+    assert_photo_is_clipped(root)
     assert root.attrib["viewBox"] == "0.00 0.00 201.00 222.00"
     polygon = root.find(f"{SVG_NS}polygon")
     points = np.array([list(map(float, point.split(","))) for point in polygon.attrib["points"].split()])
     assert len(points) == 4
     assert set(map(tuple, points)) == {(0, 1), (200, 1), (200, 221), (0, 221)}
+
+
+@pytest.mark.parametrize("canvas_size", [None, (202, 101)])
+def test_svg_photo_is_transparent_outside_concave_contour(
+    canvas_size, svg_renderer, svg_background_comparison,
+):
+    # The notch is inside the bounding box but outside this L-shaped contour.
+    contour = np.int32([[[10, 10]], [[110, 10]], [[110, 50]],
+                        [[50, 50]], [[50, 110]], [[10, 110]]])
+    photo = np.full((140, 140, 3), (40, 110, 210), dtype=np.uint8)
+    encoded, png = cv2.imencode(".png", photo[10:111, 10:111])
+    assert encoded
+    payload = base64.b64encode(png).decode("ascii")
+    svg = ReferenceSurfaceMeasurer()._contour_to_svg(
+        contour, canvas_size=canvas_size, image_base64=payload,
+    )
+    svg_background_comparison(
+        title=f"Transparent contour clip | canvas {canvas_size or (101, 101)}",
+        source=photo, bounds=(10, 10, 101, 101), image_base64=payload, svg=svg,
+        notes=["Checkerboard: outside the L-shaped contour, including its notch.",
+               "Checks: zero alpha outside, original photo inside, visible outline."],
+    )
+
+    rendered = svg_renderer(svg)
+    assert rendered.shape[2] == 4
+    height, width = rendered.shape[:2]
+    assert rendered[int(height * 0.8), int(width * 0.8), 3] == 0
+    for x, y in [(0.2, 0.8), (0.8, 0.2)]:
+        np.testing.assert_array_equal(
+            rendered[int(height * y), int(width * x)], [40, 110, 210, 255],
+        )
+    # The outline is drawn above the clipped image and remains visible.
+    assert np.any(np.all(rendered == [83, 200, 0, 255], axis=2))
 
 
 @pytest.mark.parametrize("scale", [0.5, 1.0])
@@ -137,8 +186,7 @@ def test_measure_returns_cropped_photo_and_embeds_same_png_in_svg(
 
     assert measurer.svg == debug["object_contour_svg"]
     root = ET.fromstring(measurer.svg)
-    image, polygon = list(root)
-    assert image.tag == f"{SVG_NS}image"
+    image, polygon = assert_photo_is_clipped(root)
     assert image.attrib["href"] == f"data:image/png;base64,{payload}"
     assert float(image.attrib["width"]) == pytest.approx(measurements[0].width_mm, abs=0.005)
     assert float(image.attrib["height"]) == pytest.approx(measurements[0].height_mm, abs=0.005)

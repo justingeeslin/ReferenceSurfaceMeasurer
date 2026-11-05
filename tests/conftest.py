@@ -255,6 +255,11 @@ def _svg_summary_thumbnail(image, bounds=None):
     if image is not None:
         if image.ndim == 2:
             image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+        elif image.shape[2] == 4:
+            y, x = np.indices(image.shape[:2])
+            checker = np.where((x // 16 + y // 16) % 2, 215, 240)[..., None]
+            alpha = image[..., 3:4].astype(np.float32) / 255
+            image = np.rint(image[..., :3] * alpha + checker * (1 - alpha)).astype(np.uint8)
         if bounds is not None:
             image = image.copy()
             x, y, width, height = bounds
@@ -269,14 +274,21 @@ def _render_svg_preview(svg):
         raise OSError("SVG preview unavailable: install librsvg (rsvg-convert).")
     result = subprocess.run(
         [renderer, "--format=png", "--width=560", "--height=560",
-         "--keep-aspect-ratio", "--background-color=white"],
+         "--keep-aspect-ratio"],
         input=svg.encode("utf-8"), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         check=True, timeout=10,
     )
-    image = cv2.imdecode(np.frombuffer(result.stdout, dtype=np.uint8), cv2.IMREAD_COLOR)
+    image = cv2.imdecode(np.frombuffer(result.stdout, dtype=np.uint8), cv2.IMREAD_UNCHANGED)
     if image is None:
         raise ValueError("SVG renderer did not return a PNG.")
     return image
+
+
+@pytest.fixture
+def svg_renderer():
+    if shutil.which("rsvg-convert") is None:
+        pytest.skip("Rendering alpha checks requires librsvg (rsvg-convert).")
+    return _render_svg_preview
 
 
 def pytest_collection_finish(session):
@@ -345,7 +357,7 @@ def pytest_sessionfinish(session, exitstatus):
     cv2.putText(sheet, f"{len(cases)} selected SVG test cases | {summary}", (GAP, 64),
                 font, 0.6, (45, 45, 45), 1, cv2.LINE_AA)
     timestamp = datetime.now(ZoneInfo("America/Chicago")).strftime("%Y-%m-%d %H:%M:%S %Z")
-    cv2.putText(sheet, f"Run: {timestamp} | SVG panels use the returned markup; previews require librsvg",
+    cv2.putText(sheet, f"Run: {timestamp} | Checkerboard: transparent SVG areas | Previews: librsvg",
                 (GAP, 91), font, 0.5, (65, 65, 65), 1, cv2.LINE_AA)
     for index, (nodeid, case) in enumerate(cases.items()):
         card = np.full((SVG_CARD_H, SVG_CARD_W, 3), 255, dtype=np.uint8)
